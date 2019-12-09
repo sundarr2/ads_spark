@@ -65,7 +65,9 @@ def main(args):
         ad_inst = ads_processing(url, file_dir, ads_struct)
         ad_inst.download_data()
         df = ad_inst.create_df()
-        ad_inst.transform(df).repartition(1).write.csv(path=file_dir + "/ads_result", mode="overwrite")
+        df = ad_inst.transform(df)
+        df = df.select("id",F.from_unixtime(df["timestamp"] / 1000, 'yyyy-MM-dd HH:mm:ss').alias("event_timestamp"),"type","visitorId","pageUrl","nextPageUrl")
+        df.repartition(1).write.csv(path=file_dir + "/ads_result", mode="overwrite", header="true")
     except Exception as e:
         print(e)
 
