@@ -4,6 +4,7 @@ from pyspark.sql.window import Window
 from os.path import basename
 from ads_spark.spark import get_spark
 from pyspark.sql.types import StructType, StructField, StringType
+import argparse
 
 class ads_processing:
     def __init__(self, url, file_dir,schema):
@@ -43,15 +44,17 @@ class ads_processing:
         df = df.withColumn("nextPageUrl",F.lead("pageURL").over(window_spec))
         return(df.select("id", "timestamp", "type" , "visitorId", "pageUrl", "nextPageUrl"))
 
-def main(args=None):
+def main(args):
     """ main function invoking all transformations, download -> df -> nextpage url -> write into csv"""
     try:
-        if args is None:
-            url = "https://sravanan-files.s3-us-west-1.amazonaws.com/ad-events-2018060100.tar.gz"
-            file_dir = os.path.dirname(os.path.realpath(__file__))
-        else:
-            url = sys.argv[1]
-            file_dir = sys.argv[2]
+        parser = argparse.ArgumentParser(description='Pass url and directory')
+        parser.add_argument('--url', required=True,
+                            help='url path to download')
+        parser.add_argument('--file_dir', required=True,
+                            help='dir for file process')
+        args = parser.parse_args()
+        url = args.url
+        file_dir = args.file_dir
         print(file_dir)
         data_Schema = [StructField('id', StringType(), False),
                        StructField('timestamp', StringType(), False),
@@ -62,9 +65,11 @@ def main(args=None):
         ad_inst = ads_processing(url, file_dir, ads_struct)
         ad_inst.download_data()
         df = ad_inst.create_df()
-        ad_inst.transform(df).write.csv(path=file_dir + "/ads_result", mode="overwrite")
+        ad_inst.transform(df).repartition(1).write.csv(path=file_dir + "/ads_result", mode="overwrite")
     except Exception as e:
         print(e)
 
 if __name__ == '__main__':
-    main()
+
+    main(sys.argv)
+
